@@ -1,0 +1,38 @@
+name: Compilar APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Descomprimir proyecto
+        run: |
+          mkdir proyecto
+          unzip -q GrabadorPantalla-proyecto.zip -d proyecto
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.9
+      - name: Compilar
+        working-directory: proyecto
+        run: gradle assembleRelease --no-daemon
+      - name: Preparar APK
+        run: cp proyecto/app/build/outputs/apk/release/app-release.apk GrabadorPantalla.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GrabadorPantalla
+          path: GrabadorPantalla.apk
+      - name: Publicar release con el APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete apk-latest --yes --cleanup-tag || true
+          gh release create apk-latest GrabadorPantalla.apk --title "Grabador de pantalla (último)" --notes "APK compilado automáticamente"
